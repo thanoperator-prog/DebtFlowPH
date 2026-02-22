@@ -93,7 +93,7 @@
                         Auto-Sync 
                         <span id="sidebar-status-badge" class="w-1.5 h-1.5 rounded-full bg-slate-300 ml-1 inline-block"></span>
                     </p>
-                    <p class="text-xs text-blue-900 font-bold" id="sidebar-status">Connecting...</p>
+                    <p class="text-xs text-blue-900 font-bold truncate w-32" id="sidebar-status">Connecting...</p>
                 </div>
             </div>
         </div>
@@ -191,7 +191,7 @@
         // --- Sync & Auth Logic ---
         const setupDataListener = async () => {
             try {
-                // Ensure auth works transparently
+                // Ensure auth works transparently (Anonymous handles across devices)
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -199,7 +199,7 @@
                 }
             } catch (error) {
                 console.error("Auth error:", error);
-                window.showToast("Could not connect to sync service.");
+                window.showToast("Enable Anonymous Auth in Firebase.");
             }
 
             onAuthStateChanged(auth, (user) => {
@@ -247,9 +247,9 @@
                         renderPage();
                     }, (err) => {
                         console.error("Sync error:", err);
-                        window.showToast("Sync permission error. Using local mode.");
-                        sidebarStatus.innerText = 'Offline Mode';
-                        syncBadge.className = 'w-2 h-2 rounded-full bg-slate-400 ml-1 inline-block';
+                        window.showToast("Permission Denied. Update Firestore Rules.");
+                        sidebarStatus.innerText = 'Offline (Rules Error)';
+                        syncBadge.className = 'w-2 h-2 rounded-full bg-red-500 ml-1 inline-block';
                     });
                 } else {
                     syncBadge.className = 'w-2 h-2 rounded-full bg-slate-400 ml-1 inline-block';
@@ -286,7 +286,7 @@
                     await setDoc(docRef, dataToSave);
                 } catch (err) {
                     console.error("Cloud Save Error:", err);
-                    window.showToast("Failed to sync changes to cloud.");
+                    window.showToast("Permission Denied. Update Firestore Rules.");
                 }
             }
         };
