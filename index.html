@@ -141,7 +141,7 @@
     <!-- Firebase Implementation Script -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- PWA Injector ---
@@ -222,8 +222,12 @@
         // --- Sync & Auth Logic ---
         const setupDataListener = async () => {
             try {
-                // Using anonymous auth to get past any strict Firebase rules
-                await signInAnonymously(auth);
+                // IMPORTANT: Authenticate properly depending on whether inside Canvas or standalone
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
             } catch (error) {
                 console.error("Auth error:", error);
                 window.showToast("Could not connect to sync service.");
@@ -241,7 +245,8 @@
                     if (unsubSnapshot) unsubSnapshot();
                     
                     // Public Cloud Path tied to the Sync Key (USING MANDATORY STRUCTURE)
-                    const docRef = doc(db, 'artifacts', appArtifactId, 'public', 'data', 'trackers_' + syncKey);
+                    // Path: /artifacts/{appId}/public/data/{collectionName}/{documentId}
+                    const docRef = doc(db, 'artifacts', appArtifactId, 'public', 'data', 'trackers', syncKey);
                     
                     unsubSnapshot = onSnapshot(docRef, (docSnap) => {
                         if (docSnap.exists()) {
@@ -275,7 +280,7 @@
                         renderPage();
                     }, (err) => {
                         console.error("Sync error:", err);
-                        window.showToast("Check internet connection to sync.");
+                        window.showToast("Sync permission error. Trying local mode.");
                     });
                 } else {
                     syncBadge.className = 'w-2 h-2 rounded-full bg-slate-300';
@@ -307,7 +312,7 @@
             if (currentUser) {
                 try {
                     // Public Cloud Path tied to the Sync Key (USING MANDATORY STRUCTURE)
-                    const docRef = doc(db, 'artifacts', appArtifactId, 'public', 'data', 'trackers_' + syncKey);
+                    const docRef = doc(db, 'artifacts', appArtifactId, 'public', 'data', 'trackers', syncKey);
                     // Serialize to handle potential complex nested arrays
                     const dataToSave = { debts: JSON.stringify(debts), paydays };
                     await setDoc(docRef, dataToSave);
