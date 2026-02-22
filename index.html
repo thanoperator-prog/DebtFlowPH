@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DebtFlow PH</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="DebtFlow">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #f1f5f9;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .active-link {
+            background-color: #eff6ff;
+            color: #2563eb;
+            border-right: 4px solid #2563eb;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Smooth transitions for mobile sidebar */
+        #sidebar { transition: transform 0.3s ease-in-out; }
+        #sidebar-overlay { transition: opacity 0.3s ease-in-out; }
+    </style>
+</head>
+<body class="h-screen overflow-hidden flex flex-col md:flex-row">
+
+    <!-- Mobile Navigation Toggle -->
+    <div class="md:hidden bg-white border-b px-4 py-3 flex justify-between items-center z-50 sticky top-0 shadow-sm">
+        <div class="flex items-center gap-2">
+            <!-- Mobile Logo -->
+            <svg viewBox="0 0 512 512" class="w-7 h-7" xmlns="http://www.w3.org/2000/svg">
+                <rect width="512" height="512" rx="128" fill="#2563eb"/>
+                <circle cx="256" cy="256" r="160" stroke="#ffffff" stroke-width="32" fill="none"/>
+                <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-weight="bold" font-size="220">₱</text>
+            </svg>
+            <h1 class="font-bold text-xl text-blue-600 tracking-tight">DebtFlow</h1>
+        </div>
+        <button onclick="toggleMobileMenu()" class="text-slate-600 p-2 focus:outline-none rounded-lg hover:bg-slate-100">
+            <i class="fa-solid fa-bars text-xl"></i>
+        </button>
+    </div>
+
+    <!-- Mobile Sidebar Overlay Backdrop -->
+    <div id="sidebar-overlay" onclick="toggleMobileMenu()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 hidden opacity-0 md:hidden"></div>
+
+    <!-- Sidebar Navigation -->
+    <nav id="sidebar" class="fixed inset-y-0 left-0 z-50 transform -translate-x-full md:relative md:translate-x-0 flex flex-col w-64 bg-white border-r h-full shadow-2xl md:shadow-sm">
+        <div class="p-6 flex items-center gap-3">
+            <!-- Desktop Logo -->
+            <svg viewBox="0 0 512 512" class="w-8 h-8 shadow-md rounded-[10px]" xmlns="http://www.w3.org/2000/svg">
+                <rect width="512" height="512" rx="128" fill="#2563eb"/>
+                <circle cx="256" cy="256" r="160" stroke="#ffffff" stroke-width="32" fill="none"/>
+                <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-weight="bold" font-size="220">₱</text>
+            </svg>
+            <h1 class="text-2xl font-bold text-slate-900">DebtFlow <span class="text-blue-600">PH</span></h1>
+        </div>
+
+        <div class="flex-1 px-4 space-y-2 overflow-y-auto no-scrollbar">
+            <button onclick="clearEditAndNavigate('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-600 hover:bg-slate-50 transition-all font-medium">
+                <i class="fa-solid fa-chart-pie w-5"></i> Dashboard
+            </button>
+            <button onclick="clearEditAndNavigate('add')" id="nav-add" class="nav-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-600 hover:bg-slate-50 transition-all font-medium">
+                <i class="fa-solid fa-plus-circle w-5"></i> Add Transaction
+            </button>
+            <button onclick="clearEditAndNavigate('log')" id="nav-log" class="nav-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-600 hover:bg-slate-50 transition-all font-medium">
+                <i class="fa-solid fa-receipt w-5"></i> Record Log
+            </button>
+            <button onclick="clearEditAndNavigate('settings')" id="nav-settings" class="nav-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-600 hover:bg-slate-50 transition-all font-medium">
+                <i class="fa-solid fa-cog w-5"></i> Settings
+            </button>
+        </div>
+
+        <div class="p-4 border-t bg-slate-50/50">
+            <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                <p class="text-[10px] text-blue-500 font-black uppercase tracking-widest mb-1">System Status</p>
+                <p class="text-sm text-blue-900 font-bold" id="sidebar-status">0 Active Debts</p>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto no-scrollbar relative bg-[#f8fafc]">
+        <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b px-4 md:px-6 py-4 flex justify-between items-center shadow-sm">
+            <h2 id="page-title" class="text-lg md:text-xl font-bold text-slate-800 uppercase tracking-tight">Dashboard</h2>
+            <div class="text-right hidden sm:block">
+                <p id="header-date" class="text-sm font-bold text-slate-600"></p>
+                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Philippine Time</p>
+            </div>
+        </header>
+
+        <div id="content-container" class="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+            <!-- Content Injected Here -->
+        </div>
+    </main>
+
+    <!-- Custom Confirm Modal -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl transform transition-all scale-100">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="p-3 rounded-full bg-blue-50 text-blue-600 shrink-0">
+                    <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                </div>
+                <h3 id="modal-title" class="text-lg font-bold text-slate-900 leading-tight">Title</h3>
+            </div>
+            <p id="modal-message" class="text-sm text-slate-500 mb-6 leading-relaxed">Message</p>
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeModal()" class="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors w-full sm:w-auto">Cancel</button>
+                <button id="modal-confirm-btn" class="px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-colors shadow-lg w-full sm:w-auto">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-4 left-4 md:left-auto md:right-8 bg-slate-900 text-white px-5 py-4 rounded-2xl shadow-2xl transform translate-y-40 transition-transform duration-300 flex items-center gap-4 z-[100]">
+        <div class="bg-blue-500 p-2 rounded-xl shrink-0">
+            <i class="fa-solid fa-check text-white"></i>
+        </div>
+        <p id="toast-msg" class="font-bold text-sm">Message here</p>
+    </div>
+
+    <script>
+        // --- PWA Setup (Dynamic Manifest & Icon Injector) ---
+        const svgIconStr = `<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><rect width="512" height="512" rx="128" fill="%232563eb"/><circle cx="256" cy="256" r="160" stroke="%23ffffff" stroke-width="32" fill="none"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="%23ffffff" font-family="sans-serif" font-weight="bold" font-size="220">₱</text></svg>`;
+        const iconDataUrl = "data:image/svg+xml;charset=utf-8," + svgIconStr;
+        
+        // Inject Favicon/Apple Icon
+        const favLink = document.createElement('link');
+        favLink.rel = 'icon'; favLink.href = iconDataUrl;
+        document.head.appendChild(favLink);
+        
+        const appleIcon = document.createElement('link');
+        appleIcon.rel = 'apple-touch-icon'; appleIcon.href = iconDataUrl;
+        document.head.appendChild(appleIcon);
+
+        // Inject Web Manifest for PWA installation
+        const manifest = {
+            name: "DebtFlow PH Tracker",
+            short_name: "DebtFlow",
+            description: "Philippine Payday Debt Tracker",
+            start_url: window.location.href,
+            display: "standalone",
+            background_color: "#f8fafc",
+            theme_color: "#2563eb",
+            icons: [{ src: iconDataUrl, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" }]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+        const manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        manifestLink.href = URL.createObjectURL(manifestBlob);
+        document.head.appendChild(manifestLink);
+
+        // --- State Management ---
+        let rawDebts = JSON.parse(localStorage.getItem('ph_debts')) || [];
+        
+        let debts = rawDebts.map(d => {
+            if (!d.splits) {
+                d.splits = [{ amount: d.monthlyAmount, startDate: d.startDate }];
+                d.totalMonthlyAmount = d.monthlyAmount;
+                d.paidTerms = (d.paidTerms || []).map(t => typeof t === 'number' ? `${t}-0` : t);
+            }
+            if (!d.borrower) d.borrower = 'Personal';
+            return d;
+        });
+
+        let paydays = JSON.parse(localStorage.getItem('ph_paydays')) || [10, 22, 25];
+        let currentTab = 'dashboard';
+        let expandedLogs = [];
+        let modalAction = null;
+        let editingDebtId = null;
+        let currentBorrowerFilter = 'All';
+
+        const getUniqueBorrowers = () => [...new Set(debts.map(d => d.borrower))].sort();
+        const getUniqueSources = () => [...new Set(debts.map(d => d.name))].sort();
+
+        window.setBorrowerFilter = (borrower, viewToRender) => {
+            currentBorrowerFilter = borrower;
+            if(viewToRender === 'dashboard') renderDashboard(document.getElementById('content-container'));
+            if(viewToRender === 'log') renderLog(document.getElementById('content-container'));
+        };
+
+        const renderBorrowerTabs = (viewToRender) => {
+            const borrowers = ['All', ...getUniqueBorrowers()];
+            const tabsHtml = borrowers.map(b => `
+                <button onclick="setBorrowerFilter('${b}', '${viewToRender}')" 
+                    class="px-5 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-all
+                    ${currentBorrowerFilter === b ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 scale-105' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+                    ${b === 'All' ? '<i class="fa-solid fa-users mr-1"></i> All Records' : '<i class="fa-solid fa-user mr-1"></i> ' + b}
+                </button>
+            `).join('');
+            return `<div class="flex gap-3 overflow-x-auto no-scrollbar py-2 mb-6 border-b border-slate-200 pb-5 snap-x">${tabsHtml}</div>`;
+        };
+
+        const toggleMobileMenu = () => {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            }
+        };
+
+        const clearEditAndNavigate = (tab) => {
+            editingDebtId = null;
+            currentBorrowerFilter = 'All'; 
+            
+            // Close mobile menu if open
+            if (!document.getElementById('sidebar').classList.contains('-translate-x-full') && window.innerWidth < 768) {
+                toggleMobileMenu();
+            }
+            
+            navigateTo(tab);
+        };
+
+        const showModal = (title, message, actionFn, btnText = 'Confirm', btnColor = 'bg-blue-600 hover:bg-blue-700') => {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+            confirmBtn.innerText = btnText;
+            confirmBtn.className = `px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all shadow-lg w-full sm:w-auto ${btnColor}`;
+            
+            const newBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+            
+            newBtn.addEventListener('click', () => {
+                actionFn();
+                closeModal();
+            });
+
+            const backdrop = document.getElementById('modal-backdrop');
+            backdrop.classList.remove('hidden');
+            backdrop.classList.add('flex');
+        };
+
+        const closeModal = () => {
+            document.getElementById('modal-backdrop').classList.add('hidden');
+            document.getElementById('modal-backdrop').classList.remove('flex');
+        };
+
+        const togglePaidStatus = (id, paymentId, termNumber, isCurrentlyPaid) => {
+            const actionStr = isCurrentlyPaid ? 'mark as UNPAID' : 'mark as PAID';
+            showModal('Update Status', `Are you sure you want to ${actionStr} Term ${termNumber}?`, () => {
+                let debt = debts.find(d => d.id === id);
+                if(debt) {
+                    debt.paidTerms = debt.paidTerms || [];
+                    if(isCurrentlyPaid) {
+                        debt.paidTerms = debt.paidTerms.filter(t => t !== paymentId);
+                    } else {
+                        if (!debt.paidTerms.includes(paymentId)) debt.paidTerms.push(paymentId);
+                    }
+                    saveToStorage();
+                    renderPage();
+                    showToast(`Term ${termNumber} updated!`);
+                }
+            }, 'Yes, Update', isCurrentlyPaid ? 'bg-orange-500 shadow-orange-200' : 'bg-emerald-500 shadow-emerald-200');
+        };
+
+        const toggleLogBreakdown = (id) => {
+            if (expandedLogs.includes(id)) expandedLogs = expandedLogs.filter(eId => eId !== id);
+            else expandedLogs.push(id);
+            renderLog(document.getElementById('content-container'));
+        };
+
+        const saveToStorage = () => {
+            localStorage.setItem('ph_debts', JSON.stringify(debts));
+            localStorage.setItem('ph_paydays', JSON.stringify(paydays));
+            updateSidebarStatus();
+        };
+
+        const updateSidebarStatus = () => {
+            document.getElementById('sidebar-status').innerText = `${debts.length} Active Tracker${debts.length !== 1 ? 's' : ''}`;
+        };
+
+        const formatCurrency = (val) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val);
+        const formatDate = (str) => new Date(str).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
+
+        const getPaymentInfo = (dateStr) => {
+            const d = new Date(dateStr);
+            const day = d.getDate();
+            let pMonth = d.getMonth();
+            let pYear = d.getFullYear();
+            let pDay = 25; 
+            
+            if (day >= 11 && day <= 21) { pDay = 10; } 
+            else if (day >= 23 && day <= 24) { pDay = 22; } 
+            else if (day >= 26 || day <= 9) {
+                pDay = 25;
+                if (day <= 9) {
+                    pMonth -= 1;
+                    if (pMonth < 0) { pMonth = 11; pYear -= 1; }
+                }
+            } else {
+                if (day === 10) pDay = 10;
+                if (day === 22) pDay = 22;
+                if (day === 25) pDay = 25;
+            }
+            return { payday: pDay, fundingMonth: pMonth, fundingYear: pYear, dueDate: d };
+        };
+
+        const getSchedule = (borrowerFilter = 'All') => {
+            let schedule = [];
+            let targetDebts = borrowerFilter === 'All' ? debts : debts.filter(d => d.borrower === borrowerFilter);
+            
+            targetDebts.forEach(d => {
+                let paidTerms = d.paidTerms || [];
+                d.splits.forEach((split, splitIndex) => {
+                    let start = new Date(split.startDate);
+                    for(let i=0; i<d.terms; i++) {
+                        let termNum = i + 1;
+                        let currentDue = new Date(start.getFullYear(), start.getMonth() + i, start.getDate());
+                        let paymentId = `${termNum}-${splitIndex}`;
+                        
+                        schedule.push({
+                            ...d,
+                            splitIndex: splitIndex,
+                            termNumber: termNum,
+                            paymentId: paymentId,
+                            isPaid: paidTerms.includes(paymentId),
+                            paymentInfo: getPaymentInfo(currentDue),
+                            monthlyAmount: split.amount,
+                            startDate: split.startDate,
+                            displayName: d.splits.length > 1 ? `${d.name} (P${splitIndex + 1})` : d.name
+                        });
+                    }
+                });
+            });
+            return schedule;
+        };
+
+        const navigateTo = (tab) => {
+            currentTab = tab;
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active-link'));
+            const activeBtn = document.getElementById(`nav-${tab}`);
+            if (activeBtn) activeBtn.classList.add('active-link');
+            renderPage();
+            window.scrollTo(0, 0);
+        };
+
+        const showToast = (msg) => {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.remove('translate-y-40');
+            setTimeout(() => toast.classList.add('translate-y-40'), 3000);
+        };
+
+        const renderPage = () => {
+            const container = document.getElementById('content-container');
+            const titleEl = document.getElementById('page-title');
+            
+            switch(currentTab) {
+                case 'dashboard': titleEl.innerText = "Dashboard"; renderDashboard(container); break;
+                case 'add': titleEl.innerText = editingDebtId ? "Edit Tracker" : "New Tracker"; renderAddForm(container); break;
+                case 'log': titleEl.innerText = "Record Log"; renderLog(container); break;
+                case 'settings': titleEl.innerText = "Settings"; renderSettings(container); break;
+            }
+        };
+
+        const renderDashboard = (container) => {
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+            const schedule = getSchedule(currentBorrowerFilter);
+
+            const currentMonthPayments = schedule.filter(p => 
+                p.paymentInfo.fundingMonth === currentMonth && p.paymentInfo.fundingYear === currentYear
+            );
+            const upcomingPayments = schedule.filter(p => 
+                p.paymentInfo.fundingYear > currentYear || 
+                (p.paymentInfo.fundingYear === currentYear && p.paymentInfo.fundingMonth > currentMonth)
+            );
+
+            const remainingTotal = schedule.filter(p => !p.isPaid).reduce((s, p) => s + p.monthlyAmount, 0);
+            const monthlyDue = currentMonthPayments.filter(p => !p.isPaid).reduce((s, p) => s + p.monthlyAmount, 0);
+
+            const groups = { 10: [], 22: [], 25: [] };
+            currentMonthPayments.forEach(p => { groups[p.paymentInfo.payday].push(p); });
+
+            const upcomingGroups = {};
+            upcomingPayments.filter(p => !p.isPaid).forEach(p => {
+                const key = `${p.paymentInfo.fundingYear}-${String(p.paymentInfo.fundingMonth + 1).padStart(2, '0')}`;
+                const label = new Date(p.paymentInfo.fundingYear, p.paymentInfo.fundingMonth, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                
+                if (!upcomingGroups[key]) upcomingGroups[key] = { label, total: 0, items: [] };
+                upcomingGroups[key].total += p.monthlyAmount;
+                upcomingGroups[key].items.push(p);
+            });
+            const upcomingKeys = Object.keys(upcomingGroups).sort();
+
+            container.innerHTML = `
+                ${renderBorrowerTabs('dashboard')}
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-8">
+                    <div class="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <p class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Unpaid Balance</p>
+                        <h3 class="text-2xl md:text-3xl font-black text-slate-900 truncate">${formatCurrency(remainingTotal)}</h3>
+                    </div>
+                    <div class="bg-blue-600 p-5 md:p-6 rounded-2xl shadow-lg shadow-blue-200">
+                        <p class="text-[10px] md:text-xs font-bold text-blue-100 uppercase tracking-widest mb-1">Due for ${monthName}</p>
+                        <h3 class="text-2xl md:text-3xl font-black text-white truncate">${formatCurrency(monthlyDue)}</h3>
+                    </div>
+                </div>
+
+                <h3 class="text-base md:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <div class="p-2 bg-blue-100 rounded-lg text-blue-600"><i class="fa-solid fa-wallet"></i></div>
+                    Paydays this ${monthName}
+                </h3>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+                    ${[10, 22, 25].map(pDay => {
+                        const items = groups[pDay] || [];
+                        const subtotal = items.filter(d => !d.isPaid).reduce((s, d) => s + d.monthlyAmount, 0);
+                        return `
+                        <div class="glass-card rounded-2xl overflow-hidden flex flex-col h-full shadow-sm hover:shadow-md transition-shadow">
+                            <div class="p-4 border-b flex justify-between items-center bg-slate-50">
+                                <span class="bg-blue-600 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider">Payday ${pDay}</span>
+                                <span class="font-bold text-slate-900">${formatCurrency(subtotal)}</span>
+                            </div>
+                            <div class="p-3 md:p-4 space-y-3 flex-1">
+                                ${items.length === 0 ? '<div class="flex flex-col items-center justify-center py-6 text-slate-300"><i class="fa-solid fa-mug-hot text-2xl mb-2"></i><p class="text-xs font-medium">All clear for Payday</p></div>' : ''}
+                                ${items.map(d => `
+                                    <div class="p-3 border rounded-xl shadow-sm transition-all ${d.isPaid ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200'}">
+                                        <div class="flex justify-between items-start mb-1.5">
+                                            <div class="flex items-center gap-2.5 min-w-0 pr-2">
+                                                <button onclick="togglePaidStatus('${d.id}', '${d.paymentId}', ${d.termNumber}, ${d.isPaid})" class="shrink-0 text-xl ${d.isPaid ? 'text-emerald-500' : 'text-slate-200 hover:text-emerald-500'} transition-colors">
+                                                    <i class="fa-${d.isPaid ? 'solid' : 'regular'} fa-circle-check"></i>
+                                                </button>
+                                                <p class="text-sm font-bold truncate ${d.isPaid ? 'text-slate-400 line-through' : 'text-slate-800'}">${d.displayName}</p>
+                                            </div>
+                                            <p class="text-sm font-bold shrink-0 ${d.isPaid ? 'text-slate-400' : 'text-blue-600'}">${formatCurrency(d.monthlyAmount)}</p>
+                                        </div>
+                                        <div class="flex justify-between text-[10px] text-slate-500 uppercase font-bold pl-8">
+                                            <span class="truncate pr-2"><i class="fa-solid fa-user mr-1 text-slate-300"></i>${d.borrower}</span>
+                                            <span class="shrink-0 ${d.isPaid ? 'text-emerald-500' : ''}">${d.isPaid ? 'PAID' : `T${d.termNumber}/${d.terms}`}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <h3 class="text-base md:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <div class="p-2 bg-slate-200 rounded-lg text-slate-500"><i class="fa-solid fa-calendar-days"></i></div>
+                    Upcoming Forecast
+                </h3>
+                
+                <div class="space-y-3">
+                    ${upcomingKeys.length === 0 ? '<p class="text-slate-400 text-sm italic">No scheduled dues for upcoming months.</p>' : ''}
+                    ${upcomingKeys.map(k => `
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-4">
+                            <div>
+                                <h4 class="font-bold text-slate-800">${upcomingGroups[k].label}</h4>
+                                <p class="text-[10px] uppercase tracking-widest font-bold text-slate-400">${upcomingGroups[k].items.length} Pending</p>
+                            </div>
+                            <p class="font-bold text-blue-600 text-lg">${formatCurrency(upcomingGroups[k].total)}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        };
+
+        const renderAddForm = (container) => {
+            container.innerHTML = `
+                <div class="max-w-2xl mx-auto glass-card p-5 md:p-8 rounded-2xl shadow-xl">
+                    <form id="debt-form-new" class="space-y-5 md:space-y-6">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs md:text-sm font-bold text-slate-700 mb-1.5">Borrower Name</label>
+                                <input list="borrower-suggestions" type="text" id="borrower-name" required placeholder="e.g. Personal" 
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm">
+                                <datalist id="borrower-suggestions"></datalist>
+                            </div>
+                            <div>
+                                <label class="block text-xs md:text-sm font-bold text-slate-700 mb-1.5">Debt Name / Source</label>
+                                <input list="source-suggestions" type="text" id="debt-name" required placeholder="e.g. Car Loan" 
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm">
+                                <datalist id="source-suggestions"></datalist>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs md:text-sm font-bold text-slate-700 mb-1.5">Monthly Total (₱)</label>
+                                <input type="number" id="monthly-amount" required step="0.01" placeholder="0.00"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold text-blue-600">
+                            </div>
+                            <div>
+                                <label class="block text-xs md:text-sm font-bold text-slate-700 mb-1.5">Terms (Months)</label>
+                                <input type="number" id="debt-terms" required min="1" placeholder="12"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm">
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-3 p-4 bg-blue-50/50 border border-blue-100 rounded-xl">
+                            <input type="checkbox" id="split-toggle" class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer">
+                            <label for="split-toggle" class="text-sm font-bold text-blue-900 cursor-pointer select-none">Split across multiple paydays?</label>
+                        </div>
+
+                        <div id="single-date-container" class="transition-all">
+                            <label class="block text-xs md:text-sm font-bold text-slate-700 mb-1.5">First Payment Date</label>
+                            <input type="date" id="debt-start" required 
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm">
+                            <p id="payday-preview" class="text-[10px] text-blue-500 mt-2 font-bold uppercase tracking-wider"></p>
+                        </div>
+
+                        <div id="split-container" class="hidden space-y-4 p-4 md:p-5 rounded-xl border border-slate-200 bg-slate-50/50">
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-2">
+                                <h4 class="font-bold text-slate-800 text-sm">Payday Allocation</h4>
+                                <span id="split-validation" class="text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded bg-slate-200 text-slate-600 self-start sm:self-auto">Total: ₱0.00 / ₱0.00</span>
+                            </div>
+                            <div id="split-rows" class="space-y-3"></div>
+                            <button type="button" id="add-split-btn" class="text-sm text-blue-600 font-bold hover:text-blue-700 transition-colors flex items-center gap-1.5 mt-2">
+                                <i class="fa-solid fa-circle-plus"></i> Add split row
+                            </button>
+                        </div>
+                        
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-200 mt-6 text-sm md:text-base">
+                            Save Transaction
+                        </button>
+                    </form>
+                </div>
+            `;
+
+            const bList = document.getElementById('borrower-suggestions');
+            getUniqueBorrowers().forEach(b => bList.innerHTML += `<option value="${b}">`);
+            const sList = document.getElementById('source-suggestions');
+            getUniqueSources().forEach(s => sList.innerHTML += `<option value="${s}">`);
+
+            const dateInput = document.getElementById('debt-start');
+            const preview = document.getElementById('payday-preview');
+            const updatePreview = () => {
+                if (dateInput.value) {
+                    const info = getPaymentInfo(dateInput.value);
+                    preview.innerHTML = `<i class="fa-solid fa-info-circle"></i> Auto-assigned to Payday ${info.payday}`;
+                }
+            };
+            dateInput.addEventListener('change', updatePreview);
+            dateInput.valueAsDate = new Date();
+            updatePreview();
+
+            const toggle = document.getElementById('split-toggle');
+            const singleContainer = document.getElementById('single-date-container');
+            const splitContainer = document.getElementById('split-container');
+            const rowsContainer = document.getElementById('split-rows');
+            const addSplitBtn = document.getElementById('add-split-btn');
+            const mainAmountInput = document.getElementById('monthly-amount');
+            const validationEl = document.getElementById('split-validation');
+
+            const updateValidation = () => {
+                const mainAmount = parseFloat(mainAmountInput.value) || 0;
+                const splitInputs = document.querySelectorAll('.split-amount');
+                let currentSum = 0;
+                splitInputs.forEach(input => currentSum += (parseFloat(input.value) || 0));
+
+                validationEl.innerText = `Allocated: ₱${currentSum.toFixed(2)} / ₱${mainAmount.toFixed(2)}`;
+                if (currentSum === mainAmount && mainAmount > 0) validationEl.className = 'text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded bg-emerald-100 text-emerald-700';
+                else if (currentSum > mainAmount) validationEl.className = 'text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded bg-red-100 text-red-700';
+                else validationEl.className = 'text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded bg-amber-100 text-amber-700';
+            };
+
+            const attachSplitRowEvents = (row, dtInput, prevEl, amtInput, rmBtn) => {
+                const updateRowPreview = () => {
+                    if (dtInput.value) {
+                        const info = getPaymentInfo(dtInput.value);
+                        prevEl.innerHTML = `P${info.payday}`;
+                    }
+                };
+                dtInput.addEventListener('change', updateRowPreview);
+                updateRowPreview();
+                amtInput.addEventListener('input', updateValidation);
+                if (rmBtn) rmBtn.addEventListener('click', () => { row.remove(); updateValidation(); });
+            };
+
+            const createSplitRow = (isRemovable = true) => {
+                const row = document.createElement('div');
+                row.className = 'flex gap-2 sm:gap-3 items-start bg-white p-2.5 sm:p-3 rounded-xl border border-slate-200 shadow-sm';
+                row.innerHTML = `
+                    <div class="flex-1">
+                        <label class="block text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase mb-1">Amount</label>
+                        <input type="number" step="0.01" placeholder="0" class="split-amount w-full px-2 sm:px-3 py-2 rounded-lg border border-slate-200 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase mb-1">Date</label>
+                        <div class="relative">
+                            <input type="date" class="split-date w-full px-2 sm:px-3 py-2 rounded-lg border border-slate-200 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none pr-8 sm:pr-10" required>
+                            <span class="split-preview absolute right-2 top-1/2 -translate-y-1/2 text-[9px] sm:text-[10px] font-black text-blue-600 uppercase bg-blue-50 px-1.5 py-0.5 rounded"></span>
+                        </div>
+                    </div>
+                    <div class="pt-5 sm:pt-6">
+                        ${isRemovable ? `<button type="button" class="remove-split text-slate-300 hover:text-red-500 transition-colors p-2"><i class="fa-solid fa-xmark"></i></button>` : `<div class="w-8"></div>`}
+                    </div>
+                `;
+                
+                const amtInput = row.querySelector('.split-amount');
+                const dtInput = row.querySelector('.split-date');
+                const prevEl = row.querySelector('.split-preview');
+                const rmBtn = row.querySelector('.remove-split');
+                
+                dtInput.valueAsDate = new Date();
+                attachSplitRowEvents(row, dtInput, prevEl, amtInput, rmBtn);
+                rowsContainer.appendChild(row);
+            };
+
+            mainAmountInput.addEventListener('input', updateValidation);
+
+            toggle.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    singleContainer.classList.add('hidden');
+                    document.getElementById('debt-start').removeAttribute('required');
+                    splitContainer.classList.remove('hidden');
+                    if (rowsContainer.children.length === 0) {
+                        createSplitRow(false); createSplitRow(false);
+                    }
+                    updateValidation();
+                } else {
+                    singleContainer.classList.remove('hidden');
+                    document.getElementById('debt-start').setAttribute('required', 'true');
+                    splitContainer.classList.add('hidden');
+                }
+            });
+
+            addSplitBtn.addEventListener('click', () => createSplitRow(true));
+            document.getElementById('debt-form-new').onsubmit = handleAddDebt;
+
+            if (editingDebtId) {
+                const debtToEdit = debts.find(d => d.id === editingDebtId);
+                if (debtToEdit) {
+                    document.getElementById('borrower-name').value = debtToEdit.borrower || 'Personal';
+                    document.getElementById('debt-name').value = debtToEdit.name;
+                    document.getElementById('monthly-amount').value = debtToEdit.totalMonthlyAmount;
+                    document.getElementById('debt-terms').value = debtToEdit.terms;
+
+                    const submitBtn = document.querySelector('#debt-form-new button[type="submit"]');
+                    submitBtn.innerText = 'Update Record';
+                    submitBtn.className = 'w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-emerald-200 mt-6 text-sm md:text-base';
+
+                    if (debtToEdit.splits.length > 1) {
+                        toggle.checked = true;
+                        toggle.dispatchEvent(new Event('change'));
+                        rowsContainer.innerHTML = '';
+                        debtToEdit.splits.forEach(split => {
+                            createSplitRow(true);
+                            const lastRow = rowsContainer.lastElementChild;
+                            lastRow.querySelector('.split-amount').value = split.amount;
+                            lastRow.querySelector('.split-date').value = split.startDate;
+                            lastRow.querySelector('.split-date').dispatchEvent(new Event('change'));
+                        });
+                        updateValidation();
+                    } else {
+                        document.getElementById('debt-start').value = debtToEdit.splits[0].startDate;
+                        updatePreview();
+                    }
+
+                    const cancelBtn = document.createElement('button');
+                    cancelBtn.type = 'button';
+                    cancelBtn.className = 'w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl transition-all mt-3 text-sm md:text-base border border-slate-200';
+                    cancelBtn.innerText = 'Cancel Edit';
+                    cancelBtn.onclick = () => clearEditAndNavigate('log');
+                    submitBtn.parentNode.insertBefore(cancelBtn, submitBtn.nextSibling);
+                }
+            }
+        };
+
+        const handleAddDebt = (e) => {
+            e.preventDefault();
+            const isSplit = document.getElementById('split-toggle').checked;
+            const borrowerName = document.getElementById('borrower-name').value.trim() || 'Personal';
+            const totalAmount = parseFloat(document.getElementById('monthly-amount').value);
+            const name = document.getElementById('debt-name').value.trim();
+            const terms = parseInt(document.getElementById('debt-terms').value);
+
+            let splitsData = [];
+            if (isSplit) {
+                const splitInputs = document.querySelectorAll('.split-amount');
+                const dateInputs = document.querySelectorAll('.split-date');
+                let sum = 0;
+                for(let i = 0; i < splitInputs.length; i++) {
+                    const amt = parseFloat(splitInputs[i].value);
+                    sum += amt;
+                    splitsData.push({ amount: amt, startDate: dateInputs[i].value });
+                }
+                if (Math.abs(sum - totalAmount) > 0.01) {
+                    showModal('Allocation Error', `Total split (₱${sum.toFixed(2)}) doesn't match Monthly Amount (₱${totalAmount.toFixed(2)}).`, () => {}, 'Got it', 'bg-slate-800');
+                    return;
+                }
+            } else {
+                splitsData.push({ amount: totalAmount, startDate: document.getElementById('debt-start').value });
+            }
+
+            const isEditing = !!editingDebtId;
+            const debtToEdit = isEditing ? debts.find(d => d.id === editingDebtId) : null;
+            const confirmMsg = isEditing ? `Update this record for ${borrowerName}?` : `Save this new record for ${borrowerName}?`;
+
+            showModal(isEditing ? 'Update Entry' : 'Save Entry', confirmMsg, () => {
+                if (isEditing) {
+                    debtToEdit.borrower = borrowerName;
+                    debtToEdit.name = name;
+                    debtToEdit.totalMonthlyAmount = totalAmount;
+                    debtToEdit.terms = terms;
+                    debtToEdit.splits = splitsData;
+                    
+                    debtToEdit.paidTerms = debtToEdit.paidTerms.filter(pt => {
+                        const parts = pt.split('-');
+                        return parseInt(parts[0]) <= terms && parseInt(parts[1]) < splitsData.length;
+                    });
+                    showToast("Record updated!");
+                } else {
+                    debts.push({
+                        id: crypto.randomUUID(),
+                        borrower: borrowerName,
+                        name: name,
+                        totalMonthlyAmount: totalAmount,
+                        terms: terms,
+                        createdAt: new Date().toISOString(),
+                        splits: splitsData,
+                        paidTerms: []
+                    });
+                    showToast("Record saved!");
+                }
+                editingDebtId = null;
+                saveToStorage();
+                navigateTo('log');
+            }, isEditing ? 'Update' : 'Save', isEditing ? 'bg-emerald-600' : 'bg-blue-600');
+        };
+
+        const renderLog = (container) => {
+            let targetDebts = currentBorrowerFilter === 'All' ? debts : debts.filter(d => d.borrower === currentBorrowerFilter);
+
+            container.innerHTML = `
+                ${renderBorrowerTabs('log')}
+                <div class="glass-card rounded-2xl overflow-hidden shadow-sm border border-slate-200">
+                    <div class="overflow-x-auto no-scrollbar">
+                        <table class="w-full text-left whitespace-nowrap">
+                            <thead class="bg-slate-50 border-b">
+                                <tr>
+                                    <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Details</th>
+                                    <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Payday</th>
+                                    <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</th>
+                                    <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                ${targetDebts.length === 0 ? '<tr><td colspan="4" class="text-center py-16 text-slate-400 text-sm">No records found.</td></tr>' : ''}
+                                ${targetDebts.map(d => {
+                                    const scheduleItems = getSchedule().filter(s => s.id === d.id).sort((a,b) => a.paymentInfo.dueDate - b.paymentInfo.dueDate);
+                                    const paidCount = scheduleItems.filter(s => s.isPaid).length;
+                                    const totalPayments = d.terms * d.splits.length;
+                                    const paydayBadge = d.splits.length > 1 ? 'MULTI' : 'P' + getPaymentInfo(d.splits[0].startDate).payday;
+
+                                    return `
+                                    <tr class="hover:bg-slate-50 transition-colors">
+                                        <td class="px-4 md:px-6 py-4">
+                                            <p class="font-bold text-slate-900 text-sm md:text-base">${d.name}</p>
+                                            <p class="text-[10px] text-blue-600 font-bold uppercase tracking-widest mt-0.5"><i class="fa-solid fa-user mr-1"></i> ${d.borrower}</p>
+                                        </td>
+                                        <td class="px-4 md:px-6 py-4 text-center">
+                                            <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-[10px] font-black rounded-md uppercase">${paydayBadge}</span>
+                                        </td>
+                                        <td class="px-4 md:px-6 py-4">
+                                            <p class="font-bold text-slate-900 text-sm md:text-base">${formatCurrency(d.totalMonthlyAmount)}</p>
+                                            <p class="text-[10px] ${paidCount === totalPayments ? 'text-emerald-500' : 'text-slate-400'} font-bold uppercase mt-0.5">Paid: ${paidCount}/${totalPayments}</p>
+                                        </td>
+                                        <td class="px-4 md:px-6 py-4 text-right">
+                                            <div class="flex items-center justify-end gap-1 md:gap-2">
+                                                <button onclick="startEdit('${d.id}')" class="w-8 h-8 rounded-full bg-slate-50 text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-center">
+                                                    <i class="fa-solid fa-pen text-xs"></i>
+                                                </button>
+                                                <button onclick="toggleLogBreakdown('${d.id}')" class="w-8 h-8 rounded-full bg-slate-50 text-slate-500 hover:bg-slate-200 transition-colors flex items-center justify-center">
+                                                    <i class="fa-solid fa-${expandedLogs.includes(d.id) ? 'chevron-up' : 'chevron-down'} text-xs"></i>
+                                                </button>
+                                                <button onclick="removeDebt('${d.id}')" class="w-8 h-8 rounded-full bg-slate-50 text-slate-500 hover:bg-red-50 hover:text-red-500 transition-colors flex items-center justify-center">
+                                                    <i class="fa-solid fa-trash text-xs"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    ${expandedLogs.includes(d.id) ? `
+                                    <tr class="bg-slate-50/50 border-b border-slate-100">
+                                        <td colspan="4" class="px-4 md:px-6 py-4">
+                                            <div class="bg-white border border-slate-200 rounded-xl p-3 md:p-4 shadow-sm">
+                                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Amortization Details</p>
+                                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
+                                                    ${scheduleItems.map(s => `
+                                                        <div class="flex items-center justify-between p-2.5 rounded-xl border ${s.isPaid ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-200'}">
+                                                            <div class="flex items-center gap-2.5">
+                                                                <button onclick="togglePaidStatus('${d.id}', '${s.paymentId}', ${s.termNumber}, ${s.isPaid})" class="text-xl ${s.isPaid ? 'text-emerald-500' : 'text-slate-300 hover:text-emerald-500'} transition-colors shrink-0">
+                                                                    <i class="fa-${s.isPaid ? 'solid' : 'regular'} fa-circle-check"></i>
+                                                                </button>
+                                                                <div class="min-w-0 pr-2">
+                                                                    <p class="text-xs font-bold truncate ${s.isPaid ? 'text-emerald-700' : 'text-slate-700'}">${s.displayName}</p>
+                                                                    <p class="text-[10px] text-slate-500 truncate font-medium uppercase tracking-wider">Due ${s.paymentInfo.dueDate.toLocaleDateString('en-US', { month:'short', day:'numeric'})} • T${s.termNumber}</p>
+                                                                </div>
+                                                            </div>
+                                                            <span class="text-xs font-black shrink-0 ${s.isPaid ? 'text-emerald-600' : 'text-slate-700'}">${s.isPaid ? 'PAID' : formatCurrency(s.monthlyAmount)}</span>
+                                                        </div>
+                                                    `).join('')}
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    ` : ''}
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        };
+
+        const startEdit = (id) => { editingDebtId = id; navigateTo('add'); };
+
+        const removeDebt = (id) => {
+            showModal('Delete Record', 'Permanently delete this tracker? Cannot be undone.', () => {
+                debts = debts.filter(d => d.id !== id);
+                saveToStorage();
+                renderLog(document.getElementById('content-container'));
+                showToast("Record deleted.");
+            }, 'Delete', 'bg-red-600 hover:bg-red-700');
+        };
+
+        const renderSettings = (container) => {
+            container.innerHTML = `
+                <div class="max-w-2xl mx-auto space-y-6">
+                    <div class="glass-card p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg">
+                            <i class="fa-solid fa-mobile-screen-button text-2xl"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800">Install as App</h4>
+                            <p class="text-xs text-slate-500 mt-1">For quick access, tap your browser's menu (⋮) and select <b>"Add to Home screen"</b> or <b>"Install App"</b>.</p>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-6 rounded-2xl border-l-4 border-blue-500 shadow-sm">
+                        <h4 class="font-bold text-slate-800 mb-2">Payday Configuration</h4>
+                        <p class="text-[10px] text-slate-500 mb-4 font-black uppercase tracking-wider">Current Date Ranges</p>
+                        <div class="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs md:text-sm">
+                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500">Days 11 to 21</span><span class="font-bold text-blue-600">Assigned to Payday 10</span></div>
+                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500">Days 23 to 24</span><span class="font-bold text-blue-600">Assigned to Payday 22</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Days 26 to 9</span><span class="font-bold text-blue-600">Assigned to Payday 25</span></div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <h4 class="font-bold text-slate-800 mb-4">Data Management</h4>
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <button onclick="clearAllData()" class="px-5 py-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-xs hover:bg-red-100 transition-colors uppercase w-full sm:w-auto shadow-sm">
+                                <i class="fa-solid fa-trash-can mr-2"></i> Wipe Data
+                            </button>
+                            <button onclick="exportData()" class="px-5 py-3 bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-bold text-xs hover:bg-slate-100 transition-colors uppercase w-full sm:w-auto shadow-sm">
+                                <i class="fa-solid fa-download mr-2"></i> Export JSON Backup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const clearAllData = () => {
+            showModal('Wipe All Data', 'DANGER: Deleting all records. Continue?', () => {
+                debts = []; saveToStorage(); showToast("Data cleared."); navigateTo('dashboard');
+            }, 'Wipe', 'bg-red-600 hover:bg-red-700');
+        };
+
+        const exportData = () => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(debts));
+            const dl = document.createElement('a');
+            dl.setAttribute("href", dataStr); dl.setAttribute("download", `debtflow_ph_backup.json`);
+            document.body.appendChild(dl); dl.click(); dl.remove();
+        };
+
+        window.onload = () => {
+            document.getElementById('header-date').innerText = new Date().toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            updateSidebarStatus();
+            navigateTo('dashboard');
+        };
+    </script>
+</body>
+</html>
