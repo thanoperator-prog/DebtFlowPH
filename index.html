@@ -589,12 +589,28 @@
                 <div class="space-y-3">
                     ${upcomingKeys.length === 0 ? '<p class="text-slate-400 text-sm italic">No scheduled dues for upcoming months.</p>' : ''}
                     ${upcomingKeys.map(k => `
-                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-4">
-                            <div>
-                                <h4 class="font-bold text-slate-800">${upcomingGroups[k].label}</h4>
-                                <p class="text-[10px] uppercase tracking-widest font-bold text-slate-400">${upcomingGroups[k].items.length} Pending</p>
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-2 transition-all">
+                            <div class="flex items-center justify-between cursor-pointer group" onclick="document.getElementById('forecast-${k}').classList.toggle('hidden')">
+                                <div>
+                                    <h4 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">${upcomingGroups[k].label}</h4>
+                                    <p class="text-[10px] uppercase tracking-widest font-bold text-slate-400 mt-0.5">${upcomingGroups[k].items.length} Pending <i class="fa-solid fa-chevron-down ml-1"></i></p>
+                                </div>
+                                <p class="font-bold text-blue-600 text-lg">${formatCurrency(upcomingGroups[k].total)}</p>
                             </div>
-                            <p class="font-bold text-blue-600 text-lg">${formatCurrency(upcomingGroups[k].total)}</p>
+                            <div id="forecast-${k}" class="hidden pt-3 mt-1 border-t border-slate-100 space-y-2.5">
+                                ${upcomingGroups[k].items.sort((a,b) => a.paymentInfo.payday - b.paymentInfo.payday).map(i => `
+                                    <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <div class="flex items-center gap-3">
+                                            <span class="px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded uppercase">P${i.paymentInfo.payday}</span>
+                                            <div>
+                                                <p class="text-xs font-bold text-slate-700 leading-none mb-1.5">${i.displayName}</p>
+                                                <p class="text-[9px] text-slate-500 uppercase font-bold tracking-widest"><i class="fa-solid fa-user mr-1 text-slate-300"></i>${i.borrower} <span class="mx-1">•</span> T${i.termNumber}/${i.terms}</p>
+                                            </div>
+                                        </div>
+                                        <p class="text-xs font-bold text-slate-600">${formatCurrency(i.monthlyAmount)}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
                         </div>
                     `).join('')}
                 </div>
