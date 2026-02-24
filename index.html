@@ -147,7 +147,7 @@
 
         // --- PWA Injector ---
         const svgIconStr = `<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><rect width="512" height="512" rx="128" fill="%232563eb"/><circle cx="256" cy="256" r="160" stroke="%23ffffff" stroke-width="32" fill="none"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="%23ffffff" font-family="sans-serif" font-weight="bold" font-size="220">₱</text></svg>`;
-        const iconDataUrl = "data:image/svg+xml;charset=utf-8," + svgIconStr;
+        const iconDataUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgIconStr);
         
         const favLink = document.createElement('link'); favLink.rel = 'icon'; favLink.href = iconDataUrl; document.head.appendChild(favLink);
         const appleIcon = document.createElement('link'); appleIcon.rel = 'apple-touch-icon'; appleIcon.href = iconDataUrl; document.head.appendChild(appleIcon);
@@ -191,7 +191,6 @@
         // --- Sync & Auth Logic ---
         const setupDataListener = async () => {
             try {
-                // Ensure auth works transparently (Anonymous handles across devices)
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -213,14 +212,12 @@
                     
                     if (unsubSnapshot) unsubSnapshot();
                     
-                    // Unified Global Public Cloud Path
                     const docRef = doc(db, 'artifacts', appArtifactId, 'public', 'data', 'trackers', 'global_state');
                     
                     unsubSnapshot = onSnapshot(docRef, (docSnap) => {
                         if (docSnap.exists()) {
                             const data = docSnap.data();
                             
-                            // Handle serialized arrays
                             let rawDebts = data.debts || [];
                             if (typeof rawDebts === 'string') {
                                 try { rawDebts = JSON.parse(rawDebts); } catch(e) { rawDebts = []; }
@@ -238,7 +235,6 @@
                                 return d;
                             });
                         } else {
-                            // First time running global state, upload local to cloud if any
                             if (debts.length > 0) {
                                 const dataToSave = { debts: JSON.stringify(debts), paydays };
                                 setDoc(docRef, dataToSave).catch(e => console.error(e));
@@ -256,7 +252,6 @@
                     sidebarStatus.innerText = 'Offline Mode';
                     if (unsubSnapshot) { unsubSnapshot(); unsubSnapshot = null; }
                     
-                    // Local fallback
                     let rawDebts = JSON.parse(localStorage.getItem('ph_debts')) || [];
                     debts = rawDebts.map(d => {
                         if (!d.splits) {
@@ -274,11 +269,9 @@
         };
 
         window.saveToStorage = async () => {
-            // Local Backup
             localStorage.setItem('ph_debts', JSON.stringify(debts));
             localStorage.setItem('ph_paydays', JSON.stringify(paydays));
             
-            // Cloud Sync
             if (currentUser) {
                 try {
                     const docRef = doc(db, 'artifacts', appArtifactId, 'public', 'data', 'trackers', 'global_state');
@@ -512,20 +505,97 @@
 
             const remainingTotal = schedule.filter(p => !p.isPaid).reduce((s, p) => s + p.monthlyAmount, 0);
             const monthlyDue = currentMonthPayments.filter(p => !p.isPaid).reduce((s, p) => s + p.monthlyAmount, 0);
+            const totalUpcoming = upcomingPayments.filter(p => !p.isPaid).reduce((s, p) => s + p.monthlyAmount, 0);
 
             const groups = { 10: [], 22: [], 25: [] };
             currentMonthPayments.forEach(p => { groups[p.paymentInfo.payday].push(p); });
 
             const upcomingGroups = {};
-            upcomingPayments.filter(p => !p.isPaid).forEach(p => {
+            upcomingPayments.forEach(p => {
                 const key = `${p.paymentInfo.fundingYear}-${String(p.paymentInfo.fundingMonth + 1).padStart(2, '0')}`;
                 const label = new Date(p.paymentInfo.fundingYear, p.paymentInfo.fundingMonth, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
                 
-                if (!upcomingGroups[key]) upcomingGroups[key] = { label, total: 0, items: [] };
-                upcomingGroups[key].total += p.monthlyAmount;
-                upcomingGroups[key].items.push(p);
+                if (!upcomingGroups[key]) upcomingGroups[key] = { label, total: 0, pendingCount: 0, paydays: { 10: [], 22: [], 25: [] } };
+                
+                upcomingGroups[key].paydays[p.paymentInfo.payday].push(p);
+                if (!p.isPaid) {
+                    upcomingGroups[key].total += p.monthlyAmount;
+                    upcomingGroups[key].pendingCount++;
+                }
             });
             const upcomingKeys = Object.keys(upcomingGroups).sort();
+
+            let upcomingHTML = '';
+            if (upcomingKeys.length === 0) {
+                upcomingHTML = '<p class="text-slate-400 text-sm italic">No scheduled dues for upcoming months.</p>';
+            } else {
+                upcomingHTML = upcomingKeys.map(k => {
+                    const group = upcomingGroups[k];
+                    if (group.pendingCount === 0 && group.paydays[10].length === 0 && group.paydays[22].length === 0 && group.paydays[25].length === 0) return '';
+                    
+                    let pDayHtml = '';
+                    [10, 22, 25].forEach(pDay => {
+                        const items = group.paydays[pDay];
+                        if(items.length === 0) return;
+                        const subtotal = items.filter(d => !d.isPaid).reduce((s, d) => s + d.monthlyAmount, 0);
+                        
+                        let itemsHtml = items.map(d => {
+                            const bgClass = d.isPaid ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-white border-slate-200';
+                            const iconColor = d.isPaid ? 'text-emerald-500' : 'text-slate-200 hover:text-emerald-500';
+                            const iconType = d.isPaid ? 'solid' : 'regular';
+                            const nameClass = d.isPaid ? 'text-slate-400 line-through' : 'text-slate-800';
+                            const amountColor = d.isPaid ? 'text-slate-400' : 'text-blue-600';
+                            const termStatus = d.isPaid ? '<span class="shrink-0 text-emerald-500">PAID</span>' : `<span class="shrink-0">T${d.termNumber}/${d.terms}</span>`;
+
+                            return `
+                            <div class="p-3 border rounded-xl shadow-sm transition-all ${bgClass}">
+                                <div class="flex justify-between items-start mb-1.5">
+                                    <div class="flex items-center gap-2.5 min-w-0 pr-2">
+                                        <button onclick="window.togglePaidStatus('${d.id}', '${d.paymentId}', ${d.termNumber}, ${d.isPaid})" class="shrink-0 text-xl ${iconColor} transition-colors">
+                                            <i class="fa-${iconType} fa-circle-check"></i>
+                                        </button>
+                                        <p class="text-sm font-bold truncate ${nameClass}">${d.displayName}</p>
+                                    </div>
+                                    <p class="text-sm font-bold shrink-0 ${amountColor}">${formatCurrency(d.monthlyAmount)}</p>
+                                </div>
+                                <div class="flex justify-between text-[10px] text-slate-500 uppercase font-bold pl-8">
+                                    <span class="truncate pr-2"><i class="fa-solid fa-user mr-1 text-slate-300"></i>${d.borrower}</span>
+                                    ${termStatus}
+                                </div>
+                            </div>
+                            `;
+                        }).join('');
+
+                        pDayHtml += `
+                        <div>
+                            <div class="flex justify-between items-center mb-2 px-1">
+                                <span class="bg-blue-200 text-blue-800 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Payday ${pDay}</span>
+                                <span class="text-xs font-bold text-slate-600">${formatCurrency(subtotal)}</span>
+                            </div>
+                            <div class="space-y-2">${itemsHtml}</div>
+                        </div>
+                        `;
+                    });
+
+                    return `
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col transition-all mb-3 overflow-hidden">
+                        <div class="p-4 flex items-center justify-between cursor-pointer group hover:bg-slate-50 transition-colors" onclick="document.getElementById('forecast-${k}').classList.toggle('hidden')">
+                            <div>
+                                <h4 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors text-base">${group.label}</h4>
+                                <p class="text-[10px] uppercase tracking-widest font-bold text-slate-400 mt-1">${group.pendingCount} Pending Items <i class="fa-solid fa-chevron-down ml-1"></i></p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Monthly Total</p>
+                                <p class="font-black text-blue-600 text-lg">${formatCurrency(group.total)}</p>
+                            </div>
+                        </div>
+                        <div id="forecast-${k}" class="hidden bg-slate-50 border-t border-slate-100 p-3 md:p-4 space-y-5">
+                            ${pDayHtml}
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            }
 
             container.innerHTML = `
                 ${renderBorrowerTabs('dashboard')}
@@ -581,38 +651,19 @@
                     }).join('')}
                 </div>
 
-                <h3 class="text-base md:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <div class="p-2 bg-slate-200 rounded-lg text-slate-500"><i class="fa-solid fa-calendar-days"></i></div>
-                    Upcoming Forecast
-                </h3>
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <div class="p-2 bg-slate-200 rounded-lg text-slate-500"><i class="fa-solid fa-calendar-days"></i></div>
+                        Upcoming Forecast
+                    </h3>
+                    <div class="bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100 text-right">
+                        <p class="text-[9px] font-black text-blue-500 uppercase tracking-widest">Total Upcoming</p>
+                        <p class="text-sm font-black text-blue-700">${formatCurrency(totalUpcoming)}</p>
+                    </div>
+                </div>
                 
-                <div class="space-y-3">
-                    ${upcomingKeys.length === 0 ? '<p class="text-slate-400 text-sm italic">No scheduled dues for upcoming months.</p>' : ''}
-                    ${upcomingKeys.map(k => `
-                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-2 transition-all">
-                            <div class="flex items-center justify-between cursor-pointer group" onclick="document.getElementById('forecast-${k}').classList.toggle('hidden')">
-                                <div>
-                                    <h4 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">${upcomingGroups[k].label}</h4>
-                                    <p class="text-[10px] uppercase tracking-widest font-bold text-slate-400 mt-0.5">${upcomingGroups[k].items.length} Pending <i class="fa-solid fa-chevron-down ml-1"></i></p>
-                                </div>
-                                <p class="font-bold text-blue-600 text-lg">${formatCurrency(upcomingGroups[k].total)}</p>
-                            </div>
-                            <div id="forecast-${k}" class="hidden pt-3 mt-1 border-t border-slate-100 space-y-2.5">
-                                ${upcomingGroups[k].items.sort((a,b) => a.paymentInfo.payday - b.paymentInfo.payday).map(i => `
-                                    <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                                        <div class="flex items-center gap-3">
-                                            <span class="px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black rounded uppercase">P${i.paymentInfo.payday}</span>
-                                            <div>
-                                                <p class="text-xs font-bold text-slate-700 leading-none mb-1.5">${i.displayName}</p>
-                                                <p class="text-[9px] text-slate-500 uppercase font-bold tracking-widest"><i class="fa-solid fa-user mr-1 text-slate-300"></i>${i.borrower} <span class="mx-1">•</span> T${i.termNumber}/${i.terms}</p>
-                                            </div>
-                                        </div>
-                                        <p class="text-xs font-bold text-slate-600">${formatCurrency(i.monthlyAmount)}</p>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `).join('')}
+                <div class="space-y-1">
+                    ${upcomingHTML}
                 </div>
             `;
         };
