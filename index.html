@@ -559,7 +559,7 @@
                                     <p class="text-sm font-bold shrink-0 ${amountColor}">${formatCurrency(d.monthlyAmount)}</p>
                                 </div>
                                 <div class="flex justify-between text-[10px] text-slate-500 uppercase font-bold pl-8">
-                                    <span class="truncate pr-2"><i class="fa-solid fa-user mr-1 text-slate-300"></i>${d.borrower}</span>
+                                    <span class="truncate pr-2"><i class="fa-solid fa-user mr-1 text-slate-300"></i>${d.borrower} <span class="mx-1">•</span> Due ${d.paymentInfo.dueDate.toLocaleDateString('en-US', { month:'short', day:'numeric'})}</span>
                                     ${termStatus}
                                 </div>
                             </div>
