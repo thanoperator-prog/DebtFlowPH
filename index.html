@@ -498,9 +498,18 @@
                 let paidTerms = d.paidTerms || [];
                 d.splits.forEach((split, splitIndex) => {
                     let start = new Date(split.startDate);
+                    let originalDay = start.getDate();
+                    
                     for(let i=0; i<d.terms; i++) {
                         let termNum = i + 1;
-                        let currentDue = new Date(start.getFullYear(), start.getMonth() + i, start.getDate());
+                        let targetYear = start.getFullYear();
+                        let targetMonth = start.getMonth() + i;
+                        
+                        // Siguraduhing hindi lalagpas ang due date sa maximum na araw ng specific na buwan (halimbawa, Feb 28 imbes na tumalon sa March)
+                        let lastDayOfMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+                        let adjustedDay = Math.min(originalDay, lastDayOfMonth);
+                        
+                        let currentDue = new Date(targetYear, targetMonth, adjustedDay);
                         let paymentId = `${termNum}-${splitIndex}`;
                         
                         schedule.push({
