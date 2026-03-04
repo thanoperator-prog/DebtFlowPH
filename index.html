@@ -437,24 +437,34 @@
             let pYear = d.getFullYear();
             
             let matchedConfig = null;
-            
-            // First pass: Direct match within ranges
+
+            // Unang Check: Kung saktong tumama sa mismong Payday (hal. due sa ika-10, kaya Payday ay 10)
             for (const config of paydayConfig) {
-                if (config.start <= config.end) {
-                    if (day >= config.start && day <= config.end) {
-                        matchedConfig = config;
-                        break;
-                    }
-                } else {
-                    // wraps around the end of the month (e.g. 26 to 9)
-                    if (day >= config.start || day <= config.end) {
-                        matchedConfig = config;
-                        break;
+                if (day === config.payday) {
+                    matchedConfig = config;
+                    break;
+                }
+            }
+            
+            // Pangalawang Check: Kung hindi sakto, hahanapin natin sa custom ranges
+            if (!matchedConfig) {
+                for (const config of paydayConfig) {
+                    if (config.start <= config.end) {
+                        if (day >= config.start && day <= config.end) {
+                            matchedConfig = config;
+                            break;
+                        }
+                    } else {
+                        // nag-w-wrap sa katapusan ng buwan (hal. 26 hanggang 9)
+                        if (day >= config.start || day <= config.end) {
+                            matchedConfig = config;
+                            break;
+                        }
                     }
                 }
             }
 
-            // Robust Fallback: If a day falls into a gap, assign to the mathematically closest available config
+            // Huling Fallback: Kung naiwan pa rin sa 'gap' na nalikha ng user, ihahanap natin sa pinakamalapit
             if (!matchedConfig) {
                 let minDiff = Infinity;
                 let closest = paydayConfig[0];
@@ -472,7 +482,7 @@
 
             let pDay = matchedConfig.payday;
             
-            // Adjust the month if the assigned payday technically covers the prior end-of-month period
+            // Ina-adjust ang buwan kung ang payday range ay umabot mula nakaraang buwan 
             if (matchedConfig.start > matchedConfig.end && day <= matchedConfig.end) {
                 pMonth -= 1;
                 if (pMonth < 0) { pMonth = 11; pYear -= 1; }
