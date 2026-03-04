@@ -181,6 +181,12 @@
         // --- Global State ---
         let debts = [];
         let paydays = [10, 22, 25];
+        let paydayConfig = JSON.parse(localStorage.getItem('ph_payday_config')) || [
+            { payday: 10, start: 11, end: 21 },
+            { payday: 22, start: 23, end: 24 },
+            { payday: 25, start: 26, end: 9 }
+        ];
+        
         let currentUser = null;
         let currentTab = 'dashboard';
         let expandedLogs = [];
@@ -224,6 +230,11 @@
                             }
                             
                             paydays = data.paydays || [10, 22, 25];
+                            paydayConfig = data.paydayConfig || [
+                                { payday: 10, start: 11, end: 21 },
+                                { payday: 22, start: 23, end: 24 },
+                                { payday: 25, start: 26, end: 9 }
+                            ];
 
                             debts = rawDebts.map(d => {
                                 if (!d.splits) {
@@ -236,7 +247,7 @@
                             });
                         } else {
                             if (debts.length > 0) {
-                                const dataToSave = { debts: JSON.stringify(debts), paydays };
+                                const dataToSave = { debts: JSON.stringify(debts), paydays, paydayConfig };
                                 setDoc(docRef, dataToSave).catch(e => console.error(e));
                             }
                         }
@@ -263,6 +274,11 @@
                         return d;
                     });
                     paydays = JSON.parse(localStorage.getItem('ph_paydays')) || [10, 22, 25];
+                    paydayConfig = JSON.parse(localStorage.getItem('ph_payday_config')) || [
+                        { payday: 10, start: 11, end: 21 },
+                        { payday: 22, start: 23, end: 24 },
+                        { payday: 25, start: 26, end: 9 }
+                    ];
                     renderPage();
                 }
             });
@@ -271,11 +287,12 @@
         window.saveToStorage = async () => {
             localStorage.setItem('ph_debts', JSON.stringify(debts));
             localStorage.setItem('ph_paydays', JSON.stringify(paydays));
+            localStorage.setItem('ph_payday_config', JSON.stringify(paydayConfig));
             
             if (currentUser) {
                 try {
                     const docRef = doc(db, 'artifacts', appArtifactId, 'public', 'data', 'trackers', 'global_state');
-                    const dataToSave = { debts: JSON.stringify(debts), paydays };
+                    const dataToSave = { debts: JSON.stringify(debts), paydays, paydayConfig };
                     await setDoc(docRef, dataToSave);
                 } catch (err) {
                     console.error("Cloud Save Error:", err);
@@ -381,6 +398,21 @@
             document.body.appendChild(dl); dl.click(); dl.remove();
         };
 
+        window.savePaydayConfig = async () => {
+            const clamp = (val) => Math.max(1, Math.min(31, val));
+            const newConfig = paydayConfig.map((config, idx) => {
+                return {
+                    payday: config.payday,
+                    start: clamp(parseInt(document.getElementById(`pd-start-${idx}`).value) || config.start),
+                    end: clamp(parseInt(document.getElementById(`pd-end-${idx}`).value) || config.end)
+                };
+            });
+            paydayConfig = newConfig;
+            await window.saveToStorage();
+            window.showToast("Payday dates updated!");
+            renderPage(); // re-render to reflect changes in schedule
+        };
+
         const getUniqueBorrowers = () => [...new Set(debts.map(d => d.borrower))].sort();
         const getUniqueSources = () => [...new Set(debts.map(d => d.name))].sort();
 
@@ -399,21 +431,39 @@
             const day = d.getDate();
             let pMonth = d.getMonth();
             let pYear = d.getFullYear();
-            let pDay = 25; 
+            let pDay = paydayConfig.length > 0 ? paydayConfig[0].payday : 25; 
             
-            if (day >= 11 && day <= 21) { pDay = 10; } 
-            else if (day >= 23 && day <= 24) { pDay = 22; } 
-            else if (day >= 26 || day <= 9) {
-                pDay = 25;
-                if (day <= 9) {
-                    pMonth -= 1;
-                    if (pMonth < 0) { pMonth = 11; pYear -= 1; }
+            let matchedConfig = null;
+            for (const config of paydayConfig) {
+                if (config.start <= config.end) {
+                    if (day >= config.start && day <= config.end) {
+                        pDay = config.payday;
+                        matchedConfig = config;
+                        break;
+                    }
+                } else {
+                    // wraps around the end of the month (e.g. 26 to 9)
+                    if (day >= config.start || day <= config.end) {
+                        pDay = config.payday;
+                        matchedConfig = config;
+                        break;
+                    }
                 }
-            } else {
-                if (day === 10) pDay = 10;
-                if (day === 22) pDay = 22;
-                if (day === 25) pDay = 25;
             }
+
+            // Fallback for exact date matches if they fall outside ranges
+            if (!matchedConfig) {
+                if (day === paydayConfig[0]?.payday) pDay = paydayConfig[0]?.payday;
+                else if (day === paydayConfig[1]?.payday) pDay = paydayConfig[1]?.payday;
+                else if (day === paydayConfig[2]?.payday) pDay = paydayConfig[2]?.payday;
+            }
+            
+            // Adjust the month if the assigned payday technically belongs to the prior period
+            if (matchedConfig && matchedConfig.start > matchedConfig.end && day <= matchedConfig.end) {
+                pMonth -= 1;
+                if (pMonth < 0) { pMonth = 11; pYear -= 1; }
+            }
+
             return { payday: pDay, fundingMonth: pMonth, fundingYear: pYear, dueDate: d };
         };
 
@@ -514,7 +564,11 @@
             const overdueTotal = overduePayments.reduce((s, p) => s + p.monthlyAmount, 0);
 
             const groups = { 10: [], 22: [], 25: [] };
-            currentMonthPayments.forEach(p => { groups[p.paymentInfo.payday].push(p); });
+            currentMonthPayments.forEach(p => { 
+                if (groups[p.paymentInfo.payday]) {
+                    groups[p.paymentInfo.payday].push(p); 
+                }
+            });
 
             const upcomingGroups = {};
             upcomingPayments.forEach(p => {
@@ -523,7 +577,10 @@
                 
                 if (!upcomingGroups[key]) upcomingGroups[key] = { label, total: 0, pendingCount: 0, paydays: { 10: [], 22: [], 25: [] } };
                 
-                upcomingGroups[key].paydays[p.paymentInfo.payday].push(p);
+                if (upcomingGroups[key].paydays[p.paymentInfo.payday]) {
+                    upcomingGroups[key].paydays[p.paymentInfo.payday].push(p);
+                }
+                
                 if (!p.isPaid) {
                     upcomingGroups[key].total += p.monthlyAmount;
                     upcomingGroups[key].pendingCount++;
@@ -1120,11 +1177,23 @@
 
                     <div class="glass-card p-6 rounded-2xl border-l-4 border-blue-500 shadow-sm">
                         <h4 class="font-bold text-slate-800 mb-2">Payday Configuration</h4>
-                        <p class="text-[10px] text-slate-500 mb-4 font-black uppercase tracking-wider">Current Date Ranges</p>
-                        <div class="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs md:text-sm">
-                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500">Days 11 to 21</span><span class="font-bold text-blue-600">Assigned to Payday 10</span></div>
-                            <div class="flex justify-between border-b pb-2"><span class="text-slate-500">Days 23 to 24</span><span class="font-bold text-blue-600">Assigned to Payday 22</span></div>
-                            <div class="flex justify-between"><span class="text-slate-500">Days 26 to 9</span><span class="font-bold text-blue-600">Assigned to Payday 25</span></div>
+                        <p class="text-[10px] text-slate-500 mb-4 font-black uppercase tracking-wider">Adjust Date Ranges</p>
+                        <div class="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs md:text-sm">
+                            ${paydayConfig.map((config, idx) => `
+                            <div class="flex items-center justify-between border-b border-slate-200 pb-3 last:border-0 last:pb-0">
+                                <span class="text-slate-600 font-bold hidden sm:inline">Payday ${config.payday}</span>
+                                <span class="text-slate-600 font-bold sm:hidden">P${config.payday}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-400 text-[10px] uppercase font-bold">From</span>
+                                    <input type="number" id="pd-start-${idx}" value="${config.start}" min="1" max="31" class="w-14 px-2 py-1.5 rounded-lg border border-slate-200 text-center focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-700 shadow-inner">
+                                    <span class="text-slate-400 text-[10px] uppercase font-bold">To</span>
+                                    <input type="number" id="pd-end-${idx}" value="${config.end}" min="1" max="31" class="w-14 px-2 py-1.5 rounded-lg border border-slate-200 text-center focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-700 shadow-inner">
+                                </div>
+                            </div>
+                            `).join('')}
+                            <button onclick="window.savePaydayConfig()" class="w-full mt-2 bg-blue-100 text-blue-700 hover:bg-blue-200 hover:text-blue-800 font-bold py-2.5 rounded-xl transition-colors shadow-sm text-xs uppercase tracking-widest">
+                                Save Changes
+                            </button>
                         </div>
                     </div>
 
