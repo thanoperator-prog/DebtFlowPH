@@ -410,7 +410,11 @@
             paydayConfig = newConfig;
             await window.saveToStorage();
             window.showToast("Payday dates updated!");
-            renderPage(); // re-render to reflect changes in schedule
+            
+            // UX FIX: Automatically switch to dashboard so the user can immediately see the changes reflected
+            setTimeout(() => {
+                window.clearEditAndNavigate('dashboard');
+            }, 400); 
         };
 
         const getUniqueBorrowers = () => [...new Set(debts.map(d => d.borrower))].sort();
@@ -434,7 +438,7 @@
             
             let matchedConfig = null;
             
-            // Try to find the matching configuration segment for the day
+            // First pass: Direct match within ranges
             for (const config of paydayConfig) {
                 if (config.start <= config.end) {
                     if (day >= config.start && day <= config.end) {
@@ -450,15 +454,16 @@
                 }
             }
 
-            // Robust Fallback: If day falls into a gap, assign to the conceptually closest NEXT payday
+            // Robust Fallback: If a day falls into a gap, assign to the mathematically closest available config
             if (!matchedConfig) {
-                let minDiff = 32;
+                let minDiff = Infinity;
                 let closest = paydayConfig[0];
                 for (const config of paydayConfig) {
-                    let diff = config.start - day;
-                    if (diff < 0) diff += 31; // Ensures we look forward in time for wrap-around
-                    if (diff < minDiff) {
-                        minDiff = diff;
+                    let d1 = Math.abs(day - config.start);
+                    let d2 = Math.abs(day - config.end);
+                    let best = Math.min(d1, d2);
+                    if (best < minDiff) {
+                        minDiff = best;
                         closest = config;
                     }
                 }
