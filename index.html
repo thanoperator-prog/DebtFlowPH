@@ -502,10 +502,16 @@
                 p.paymentInfo.fundingYear > currentYear || 
                 (p.paymentInfo.fundingYear === currentYear && p.paymentInfo.fundingMonth > currentMonth)
             );
+            const overduePayments = schedule.filter(p => 
+                !p.isPaid && 
+                (p.paymentInfo.fundingYear < currentYear || 
+                (p.paymentInfo.fundingYear === currentYear && p.paymentInfo.fundingMonth < currentMonth))
+            );
 
             const remainingTotal = schedule.filter(p => !p.isPaid).reduce((s, p) => s + p.monthlyAmount, 0);
             const monthlyDue = currentMonthPayments.filter(p => !p.isPaid).reduce((s, p) => s + p.monthlyAmount, 0);
             const totalUpcoming = upcomingPayments.filter(p => !p.isPaid).reduce((s, p) => s + p.monthlyAmount, 0);
+            const overdueTotal = overduePayments.reduce((s, p) => s + p.monthlyAmount, 0);
 
             const groups = { 10: [], 22: [], 25: [] };
             currentMonthPayments.forEach(p => { groups[p.paymentInfo.payday].push(p); });
@@ -597,6 +603,47 @@
                 }).join('');
             }
 
+            let overdueHTML = '';
+            if (overduePayments.length > 0) {
+                let overdueItemsHtml = overduePayments.sort((a,b) => a.paymentInfo.dueDate - b.paymentInfo.dueDate).map(d => {
+                    return `
+                    <div class="p-3 border rounded-xl shadow-sm transition-all bg-white border-red-200">
+                        <div class="flex justify-between items-start mb-1.5">
+                            <div class="flex items-center gap-2.5 min-w-0 pr-2">
+                                <button onclick="window.togglePaidStatus('${d.id}', '${d.paymentId}', ${d.termNumber}, ${d.isPaid})" class="shrink-0 text-xl text-slate-200 hover:text-emerald-500 transition-colors">
+                                    <i class="fa-regular fa-circle-check"></i>
+                                </button>
+                                <p class="text-sm font-bold truncate text-red-700">${d.displayName}</p>
+                            </div>
+                            <p class="text-sm font-bold shrink-0 text-red-600">${formatCurrency(d.monthlyAmount)}</p>
+                        </div>
+                        <div class="flex justify-between text-[10px] text-slate-500 uppercase font-bold pl-8">
+                            <span class="truncate pr-2"><i class="fa-solid fa-user mr-1 text-slate-300"></i>${d.borrower} <span class="mx-1">•</span> Due ${d.paymentInfo.dueDate.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric'})}</span>
+                            <span class="shrink-0 text-red-500">T${d.termNumber}/${d.terms}</span>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+
+                overdueHTML = `
+                    <div class="mb-8">
+                        <h3 class="text-base md:text-lg font-bold text-red-700 mb-3 flex items-center gap-2">
+                            <div class="p-2 bg-red-100 rounded-lg text-red-600"><i class="fa-solid fa-circle-exclamation"></i></div>
+                            Overdue Payables
+                        </h3>
+                        <div class="bg-red-50/50 border border-red-200 rounded-2xl p-3 md:p-4 shadow-sm">
+                            <div class="flex justify-between items-center mb-3 px-1">
+                                <span class="text-[10px] font-black text-red-500 uppercase tracking-widest">Total Overdue</span>
+                                <span class="text-sm font-black text-red-600">${formatCurrency(overdueTotal)}</span>
+                            </div>
+                            <div class="space-y-2">
+                                ${overdueItemsHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
             container.innerHTML = `
                 ${renderBorrowerTabs('dashboard')}
                 
@@ -610,6 +657,8 @@
                         <h3 class="text-2xl md:text-3xl font-black text-white truncate">${formatCurrency(monthlyDue)}</h3>
                     </div>
                 </div>
+
+                ${overdueHTML}
 
                 <h3 class="text-base md:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <div class="p-2 bg-blue-100 rounded-lg text-blue-600"><i class="fa-solid fa-wallet"></i></div>
