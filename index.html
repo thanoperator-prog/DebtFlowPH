@@ -431,35 +431,44 @@
             const day = d.getDate();
             let pMonth = d.getMonth();
             let pYear = d.getFullYear();
-            let pDay = paydayConfig.length > 0 ? paydayConfig[0].payday : 25; 
             
             let matchedConfig = null;
+            
+            // Try to find the matching configuration segment for the day
             for (const config of paydayConfig) {
                 if (config.start <= config.end) {
                     if (day >= config.start && day <= config.end) {
-                        pDay = config.payday;
                         matchedConfig = config;
                         break;
                     }
                 } else {
                     // wraps around the end of the month (e.g. 26 to 9)
                     if (day >= config.start || day <= config.end) {
-                        pDay = config.payday;
                         matchedConfig = config;
                         break;
                     }
                 }
             }
 
-            // Fallback for exact date matches if they fall outside ranges
+            // Robust Fallback: If day falls into a gap, assign to the conceptually closest NEXT payday
             if (!matchedConfig) {
-                if (day === paydayConfig[0]?.payday) pDay = paydayConfig[0]?.payday;
-                else if (day === paydayConfig[1]?.payday) pDay = paydayConfig[1]?.payday;
-                else if (day === paydayConfig[2]?.payday) pDay = paydayConfig[2]?.payday;
+                let minDiff = 32;
+                let closest = paydayConfig[0];
+                for (const config of paydayConfig) {
+                    let diff = config.start - day;
+                    if (diff < 0) diff += 31; // Ensures we look forward in time for wrap-around
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closest = config;
+                    }
+                }
+                matchedConfig = closest;
             }
+
+            let pDay = matchedConfig.payday;
             
-            // Adjust the month if the assigned payday technically belongs to the prior period
-            if (matchedConfig && matchedConfig.start > matchedConfig.end && day <= matchedConfig.end) {
+            // Adjust the month if the assigned payday technically covers the prior end-of-month period
+            if (matchedConfig.start > matchedConfig.end && day <= matchedConfig.end) {
                 pMonth -= 1;
                 if (pMonth < 0) { pMonth = 11; pYear -= 1; }
             }
