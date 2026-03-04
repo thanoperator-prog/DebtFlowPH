@@ -438,7 +438,7 @@
             
             let matchedConfig = null;
 
-            // Unang Check: Kung saktong tumama sa mismong Payday (hal. due sa ika-10, kaya Payday ay 10)
+            // First check: Exact match to the payday itself
             for (const config of paydayConfig) {
                 if (day === config.payday) {
                     matchedConfig = config;
@@ -446,7 +446,7 @@
                 }
             }
             
-            // Pangalawang Check: Kung hindi sakto, hahanapin natin sa custom ranges
+            // Second check: Custom range logic
             if (!matchedConfig) {
                 for (const config of paydayConfig) {
                     if (config.start <= config.end) {
@@ -455,7 +455,6 @@
                             break;
                         }
                     } else {
-                        // nag-w-wrap sa katapusan ng buwan (hal. 26 hanggang 9)
                         if (day >= config.start || day <= config.end) {
                             matchedConfig = config;
                             break;
@@ -464,7 +463,7 @@
                 }
             }
 
-            // Huling Fallback: Kung naiwan pa rin sa 'gap' na nalikha ng user, ihahanap natin sa pinakamalapit
+            // Fallback: Bind to the closest configuration if in a gap
             if (!matchedConfig) {
                 let minDiff = Infinity;
                 let closest = paydayConfig[0];
@@ -482,7 +481,7 @@
 
             let pDay = matchedConfig.payday;
             
-            // Ina-adjust ang buwan kung ang payday range ay umabot mula nakaraang buwan 
+            // Adjust month if range technically extends from previous month
             if (matchedConfig.start > matchedConfig.end && day <= matchedConfig.end) {
                 pMonth -= 1;
                 if (pMonth < 0) { pMonth = 11; pYear -= 1; }
@@ -1075,7 +1074,7 @@
             const completedDebts = enrichedDebts.filter(d => d.isDone);
 
             const renderRows = (debtsArray) => {
-                if (debtsArray.length === 0) return '<tr><td colspan="4" class="text-center py-16 text-slate-400 text-sm">Walang nahanap na record.</td></tr>';
+                if (debtsArray.length === 0) return '<tr><td colspan="4" class="text-center py-16 text-slate-400 text-sm">No records found.</td></tr>';
                 return debtsArray.map(d => {
                     const paydayBadge = d.splits.length > 1 ? 'MULTI' : 'P' + getPaymentInfo(d.splits[0].startDate).payday;
 
@@ -1090,7 +1089,7 @@
                         </td>
                         <td class="px-4 md:px-6 py-4">
                             <p class="font-bold text-slate-900 text-sm md:text-base">${formatCurrency(d.totalMonthlyAmount)}</p>
-                            <p class="text-[10px] ${d.paidCount === d.totalPayments ? 'text-emerald-500' : 'text-slate-400'} font-bold uppercase mt-0.5">Bayad: ${d.paidCount}/${d.totalPayments}</p>
+                            <p class="text-[10px] ${d.paidCount === d.totalPayments ? 'text-emerald-500' : 'text-slate-400'} font-bold uppercase mt-0.5">Paid: ${d.paidCount}/${d.totalPayments}</p>
                         </td>
                         <td class="px-4 md:px-6 py-4 text-right">
                             <div class="flex items-center justify-end gap-1 md:gap-2">
@@ -1110,7 +1109,7 @@
                     <tr class="bg-slate-50/50 border-b border-slate-100">
                         <td colspan="4" class="px-4 md:px-6 py-4">
                             <div class="bg-white border border-slate-200 rounded-xl p-3 md:p-4 shadow-sm">
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Detalye ng Amortization</p>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Amortization Details</p>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
                                     ${d.scheduleItems.map(s => `
                                         <div class="flex items-center justify-between p-2.5 rounded-xl border ${s.isPaid ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-200'}">
@@ -1123,7 +1122,7 @@
                                                     <p class="text-[10px] text-slate-500 truncate font-medium uppercase tracking-wider">Due ${s.paymentInfo.dueDate.toLocaleDateString('en-US', { month:'short', day:'numeric'})} • T${s.termNumber}</p>
                                                 </div>
                                             </div>
-                                            <span class="text-xs font-black shrink-0 ${s.isPaid ? 'text-emerald-600' : 'text-slate-700'}">${s.isPaid ? 'BAYAD' : formatCurrency(s.monthlyAmount)}</span>
+                                            <span class="text-xs font-black shrink-0 ${s.isPaid ? 'text-emerald-600' : 'text-slate-700'}">${s.isPaid ? 'PAID' : formatCurrency(s.monthlyAmount)}</span>
                                         </div>
                                     `).join('')}
                                 </div>
@@ -1147,7 +1146,7 @@
                         <table class="w-full text-left whitespace-nowrap">
                             <thead class="bg-slate-50 border-b">
                                 <tr>
-                                    <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Detalye</th>
+                                    <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Details</th>
                                     <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Payday</th>
                                     <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</th>
                                     <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
@@ -1170,7 +1169,7 @@
                         <table class="w-full text-left whitespace-nowrap">
                             <thead class="bg-slate-50 border-b">
                                 <tr>
-                                    <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Detalye</th>
+                                    <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Details</th>
                                     <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Payday</th>
                                     <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</th>
                                     <th class="px-4 md:px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
