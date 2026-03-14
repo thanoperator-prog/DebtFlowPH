@@ -71,6 +71,7 @@
         <div class="flex-1 px-4 space-y-2 overflow-y-auto no-scrollbar">
             <button onclick="window.clearEditAndNavigate('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-600 hover:bg-slate-50 transition-all font-medium">
                 <i class="fa-solid fa-chart-pie w-5"></i> Dashboard
+                <span id="nav-badge-overdue" class="ml-auto bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full hidden shadow-sm border border-red-600">0</span>
             </button>
             <button onclick="window.clearEditAndNavigate('add')" id="nav-add" class="nav-btn w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-600 hover:bg-slate-50 transition-all font-medium">
                 <i class="fa-solid fa-plus-circle w-5"></i> Add Transaction
@@ -426,6 +427,23 @@
             if(viewToRender === 'log') renderLog(document.getElementById('content-container'));
         };
 
+        window.updateGlobalBadges = () => {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const allSchedule = getSchedule('All');
+            const overdueCount = allSchedule.filter(p => !p.isPaid && p.paymentInfo.dueDate < today).length;
+            
+            const badge = document.getElementById('nav-badge-overdue');
+            if (badge) {
+                if (overdueCount > 0) {
+                    badge.innerText = overdueCount;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+        };
+
         // --- Core Helpers & UI ---
         const formatCurrency = (val) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val);
         const formatDate = (str) => new Date(str).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
@@ -561,6 +579,8 @@
             const container = document.getElementById('content-container');
             const titleEl = document.getElementById('page-title');
             
+            window.updateGlobalBadges();
+
             switch(currentTab) {
                 case 'dashboard': titleEl.innerText = "Dashboard"; renderDashboard(container); break;
                 case 'add': titleEl.innerText = editingDebtId ? "Edit Tracker" : "New Tracker"; renderAddForm(container); break;
@@ -571,6 +591,8 @@
 
         const renderDashboard = (container) => {
             const now = new Date();
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
             const currentMonth = now.getMonth();
             const currentYear = now.getFullYear();
             const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -585,9 +607,7 @@
                 (p.paymentInfo.fundingYear === currentYear && p.paymentInfo.fundingMonth > currentMonth)
             );
             const overduePayments = schedule.filter(p => 
-                !p.isPaid && 
-                (p.paymentInfo.fundingYear < currentYear || 
-                (p.paymentInfo.fundingYear === currentYear && p.paymentInfo.fundingMonth < currentMonth))
+                !p.isPaid && p.paymentInfo.dueDate < today
             );
 
             const remainingTotal = schedule.filter(p => !p.isPaid).reduce((s, p) => s + p.monthlyAmount, 0);
@@ -693,6 +713,7 @@
             }
 
             let overdueHTML = '';
+            let overdueBanner = '';
             if (overduePayments.length > 0) {
                 let overdueItemsHtml = overduePayments.sort((a,b) => a.paymentInfo.dueDate - b.paymentInfo.dueDate).map(d => {
                     return `
@@ -731,11 +752,23 @@
                         </div>
                     </div>
                 `;
+                
+                overdueBanner = `
+                <div class="bg-red-50 border border-red-200 border-l-4 border-l-red-500 p-4 rounded-xl shadow-sm mb-6 flex items-start gap-3">
+                    <div class="text-red-500 mt-0.5 animate-pulse"><i class="fa-solid fa-triangle-exclamation text-xl"></i></div>
+                    <div>
+                        <h3 class="text-red-800 font-bold text-sm">Aksyon Kailangan: May Nakaligtaang Bayaran</h3>
+                        <p class="text-red-600 text-xs mt-1">Mayroon kang <strong>${overduePayments.length}</strong> overdue na record na nagkakahalaga ng <strong>${formatCurrency(overdueTotal)}</strong>. Tingnan ang detalyadong listahan sa ibaba.</p>
+                    </div>
+                </div>
+                `;
             }
 
             container.innerHTML = `
                 ${renderBorrowerTabs('dashboard')}
                 
+                ${overdueBanner}
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-8">
                     <div class="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm">
                         <p class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Unpaid Balance</p>
